@@ -14,19 +14,12 @@ connectDB();
 const app = express();
 
 // CORS Configuration
+// CORS
 const corsOptions = {
-    origin: [
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'https://rextokenfinal.vercel.app',
-        'https://rextoken.in',
-        'https://www.rextoken.in'
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    optionsSuccessStatus: 200
-};
+    origin: ['http://localhost:5173', 'http://localhost:5174', 'rex-token-backend-beta.vercel.app', 'www.rextoken.in', 'rex-token-frontend.vercel.app'], // Allow both 5173 and 5174
+    methods: 'GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH, PROPFIND',
+    credentials: true
+}
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
