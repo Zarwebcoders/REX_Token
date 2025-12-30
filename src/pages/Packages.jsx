@@ -267,12 +267,12 @@ export default function Packages() {
 
                         <div className="pt-4 border-t border-[#444]">
                             <div className="flex flex-col sm:flex-row gap-3">
-                                <button
+                                {/* <button
                                     onClick={handleConnect}
                                     className="flex-1 px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-[#e84495] to-[#9131e7] text-white font-bold rounded-lg hover:shadow-lg hover:shadow-[#e84495]/50 transition-all duration-300 hover:-translate-y-1 active:translate-y-0 text-sm md:text-base"
                                 >
                                     Connect Wallet
-                                </button>
+                                </button> */}
                                 <button
                                     onClick={handleSubmit}
                                     className="flex-1 px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-[#9131e7] to-[#e84495] text-white font-bold rounded-lg hover:shadow-lg hover:shadow-[#9131e7]/50 transition-all duration-300 hover:-translate-y-1 active:translate-y-0 text-sm md:text-base"
