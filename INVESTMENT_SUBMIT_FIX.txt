@@ -1,0 +1,57 @@
+// SOLUTION: Update handleSubmit function in Packages.jsx (around line 97-137)
+// Replace the entire handleSubmit function with this:
+
+const handleSubmit = async () => {
+    try {
+        // Check if wallet is connected
+        if (!isWalletConnected || !walletAddress || walletAddress === '0x0000000000000000000000000000000000000000') {
+            alert("⚠️ Wallet Not Connected!\n\nPlease connect your wallet before investing.\n\nClick the 'Connect Wallet' button below.");
+            return;
+        }
+
+        if (!formData.amount) {
+            alert("Please enter amount");
+            return;
+        }
+        if (formData.amount < 500) {
+            alert("Minimum amount is ₹500");
+            return;
+        }
+
+        // Check if sponsor address is valid
+        if (!sponsorAddress || sponsorAddress === "No Sponsor" || sponsorAddress === '0x0000000000000000000000000000000000000000') {
+            alert("⚠️ No Sponsor Found!\n\nYou need a valid sponsor to invest.\n\nPlease contact support.");
+            return;
+        }
+
+        console.log("Submitting investment:", {
+            userWallet: walletAddress,
+            amount: formData.amount,
+            sponsorWallet: sponsorAddress
+        });
+
+        await client.post('/investments', {
+            userWallet: walletAddress,  // User's connected wallet
+            amount: formData.amount,
+            transactionId: formData.transactionId || `TXN${Date.now()}`,
+            sponsorId: sponsorAddress  // Sponsor's wallet address
+        });
+
+        alert("✅ Investment Request Submitted!\n\nYour investment request has been submitted successfully.\n\nStatus: Pending Verification\n\nYour request will be processed within 24 hours after payment verification.");
+
+        // Refresh investments
+        const { data } = await client.get('/investments');
+        setInvestments(data);
+
+        // Reset form
+        setFormData({
+            amount: "",
+            transactionId: "",
+            paymentSlip: null
+        });
+
+    } catch (error) {
+        console.error("Error creating investment:", error);
+        alert(error.response?.data?.message || "Failed to submit investment");
+    }
+};

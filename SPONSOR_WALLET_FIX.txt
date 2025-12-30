@@ -1,0 +1,32 @@
+                console.log("User data:", userRes.data);
+                console.log("Sponsor wallet field:", userRes.data.sponsorWallet);
+                console.log("Referred by:", userRes.data.referredBy);
+
+                // Get sponsor wallet address
+                let sponsorWallet = userRes.data.sponsorWallet;
+
+                // If sponsorWallet doesn't exist, get from referredBy (for existing users)
+                if (!sponsorWallet && userRes.data.referredBy) {
+                    if (typeof userRes.data.referredBy === 'object' && userRes.data.referredBy.wallet) {
+                        // referredBy is populated with user object
+                        sponsorWallet = userRes.data.referredBy.wallet;
+                        console.log("Got sponsor wallet from referredBy object:", sponsorWallet);
+                    } else if (typeof userRes.data.referredBy === 'string') {
+                        // referredBy is just an ID, need to fetch
+                        try {
+                            const sponsorRes = await client.get(`/users/${userRes.data.referredBy}`);
+                            sponsorWallet = sponsorRes.data.wallet;
+                            console.log("Fetched sponsor wallet from API:", sponsorWallet);
+                        } catch (err) {
+                            console.error("Error fetching sponsor:", err);
+                        }
+                    }
+                }
+
+                if (sponsorWallet && sponsorWallet !== '0x0000000000000000000000000000000000000000') {
+                    console.log("Setting sponsor address:", sponsorWallet);
+                    setSponsorAddress(sponsorWallet);
+                } else {
+                    console.log("No sponsor wallet found");
+                    setSponsorAddress("No Sponsor");
+                }

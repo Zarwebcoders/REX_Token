@@ -1,0 +1,36 @@
+// SOLUTION FOR PACKAGES.JSX - Replace lines 28-43
+
+setPackages(packagesRes.data);
+setInvestments(investmentsRes.data);
+
+console.log("User data:", userRes.data);
+console.log("Sponsor wallet field:", userRes.data.sponsorWallet);
+
+// Get sponsor wallet address
+let sponsorWallet = userRes.data.sponsorWallet;
+
+// Fallback: If sponsorWallet is undefined (old users), try to get from referredBy
+if (!sponsorWallet && userRes.data.referredBy) {
+    console.log("sponsorWallet undefined, fetching from referredBy...");
+    try {
+        if (typeof userRes.data.referredBy === 'object') {
+            // Already populated
+            sponsorWallet = userRes.data.referredBy.wallet;
+        } else {
+            // Fetch sponsor data
+            const sponsorRes = await client.get(`/users/${userRes.data.referredBy}`);
+            sponsorWallet = sponsorRes.data.wallet;
+        }
+        console.log("Fetched sponsor wallet:", sponsorWallet);
+    } catch (err) {
+        console.error("Error fetching sponsor:", err);
+    }
+}
+
+if (sponsorWallet && sponsorWallet !== '0x0000000000000000000000000000000000000000') {
+    console.log("Setting sponsor address:", sponsorWallet);
+    setSponsorAddress(sponsorWallet);
+} else {
+    console.log("No sponsor wallet found");
+    setSponsorAddress("No Sponsor");
+}

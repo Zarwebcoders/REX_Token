@@ -1,0 +1,255 @@
+1. User Collection
+
+Purpose: Stores user account and profile information.
+
+name (String)
+Full name of the user. (Required)
+
+email (String)
+Email address of the user. (Required, Unique, Validated format)
+
+phone (String)
+Phone number of the user. (Default: "")
+
+referralCode (String)
+Unique referral code assigned to the user.
+
+referredBy (ObjectId)
+Reference to the User who referred this user.
+
+password (String)
+Hashed password. (Required, Minimum length: 6)
+
+role (String)
+Role assigned to the user.
+Values: user, admin
+(Default: user)
+
+wallet (String)
+Crypto wallet address. (Default: Zero address)
+
+balance (Number)
+Current account balance. (Default: 0)
+
+loyaltyPoints (Number)
+Loyalty points earned by the user. (Default: 0)
+
+rexToken (Number)
+REX token balance. (Default: 0)
+
+shoppingPoints (Number)
+Shopping points balance. (Default: 0)
+
+status (String)
+Account status.
+Values: active, suspended, inactive
+(Default: active)
+
+kycStatus (String)
+KYC verification status.
+Values: verification_needed, pending, verified, rejected
+(Default: verification_needed)
+
+joinedDate (Date)
+Date when the account was created. (Default: Date.now)
+
+createdAt (Date)
+Timestamp when the record was created.
+
+updatedAt (Date)
+Timestamp when the record was last updated.
+
+2. Investment Collection
+
+Purpose: Tracks user investments in packages.
+
+user (ObjectId)
+Reference to the User making the investment. (Required)
+
+package (ObjectId)
+Reference to the purchased Package. (Required)
+
+amount (Number)
+Investment amount. (Required)
+
+dailyReturn (Number)
+Daily return percentage. (Required)
+
+dailyReturnAmount (Number)
+Actual daily return amount. (Required)
+
+startDate (Date)
+Investment start date. (Default: Date.now)
+
+endDate (Date)
+Investment end date. (Required)
+
+status (String)
+Investment status.
+Values: active, completed, terminated
+(Default: active)
+
+lastroiDate (Date)
+Date of the last ROI payout. (Default: Date.now)
+
+transactionId (String)
+Unique investment transaction identifier. (Required)
+
+createdAt (Date)
+Timestamp when the record was created.
+
+updatedAt (Date)
+Timestamp when the record was last updated.
+
+3. Transaction Collection
+
+Purpose: Records all financial transactions and activities.
+
+user (ObjectId)
+Reference to the primary User. (Required)
+
+relatedUser (ObjectId)
+Reference to a related User (used for referral or level income).
+
+type (String)
+Type of transaction.
+Values: deposit, withdrawal, investment, referral, payout, level_income, referral_income, purchase
+(Required)
+
+amount (Number)
+Transaction amount. (Required)
+
+currency (String)
+Currency code. (Default: USD)
+
+crypto (String)
+Cryptocurrency type.
+Values: BTC, ETH, USDT, None
+(Default: None)
+
+hash (String)
+Blockchain transaction hash.
+
+status (String)
+Transaction status.
+Values: pending, completed, failed, rejected
+(Default: pending)
+
+description (String)
+Description or remarks related to the transaction.
+
+createdAt (Date)
+Timestamp when the record was created.
+
+updatedAt (Date)
+Timestamp when the record was last updated.
+
+4. Package Collection
+
+Purpose: Defines investment packages offered on the platform.
+
+name (String)
+Name of the investment package. (Required)
+
+minInvestment (Number)
+Minimum investment amount. (Required)
+
+maxInvestment (Number)
+Maximum investment amount. (Required)
+
+dailyReturn (Number)
+Daily return percentage. (Required)
+
+duration (Number)
+Investment duration in days. (Required)
+
+status (String)
+Package availability status.
+Values: active, inactive
+(Default: active)
+
+description (String)
+Description of the package.
+
+createdAt (Date)
+Timestamp when the record was created.
+
+updatedAt (Date)
+Timestamp when the record was last updated.
+
+5. KYC Collection
+
+Purpose: Stores Know Your Customer (KYC) verification details.
+
+user (ObjectId)
+Reference to the User. (Required, Unique)
+
+documentType (String)
+Type of document submitted. (Default: Aadhar)
+
+aadharNumber (String)
+Aadhar card number.
+
+panNumber (String)
+PAN card number.
+
+bankDetails (Object)
+
+accountName (String)
+
+bankName (String)
+
+accountNumber (String)
+
+branch (String)
+
+ifscCode (String)
+
+documents (Object)
+Uploaded document file paths or links:
+
+profilePhoto (String)
+
+aadharFront (String)
+
+aadharBack (String)
+
+panCard (String)
+
+agreement (String)
+
+status (String)
+KYC verification status.
+Values: pending, approved, rejected
+(Default: pending)
+
+adminNotes (String)
+Notes added by the admin during verification.
+
+submittedDate (Date)
+Date of KYC submission. (Default: Date.now)
+
+createdAt (Date)
+Timestamp when the record was created.
+
+updatedAt (Date)
+Timestamp when the record was last updated.
+
+6. Setting Collection
+
+Purpose: Stores global system configuration settings.
+
+key (String)
+Unique configuration key name. (Required, Unique)
+
+value (Mixed)
+Configuration value (string, number, boolean, or object). (Required)
+
+description (String)
+Description explaining the setting.
+
+createdAt (Date)
+Timestamp when the record was created.
+
+updatedAt (Date)
+Timestamp when the record was last updated.

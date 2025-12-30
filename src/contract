@@ -1,0 +1,772 @@
+/**
+ *Submitted for verification at BscScan.com on 2025-12-18
+*/
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract REXToken {
+    // ========== TOKEN DETAILS ==========
+    string public name = "REX Token";
+    string public symbol = "REX";
+    uint8 public decimals = 18;
+    uint256 public totalSupply;
+    
+    // ========== TOKENOMICS ==========
+    uint256 public constant MAX_SUPPLY = 21_000_000 * 10**18;
+    uint256 public constant INITIAL_PRICE = 5 * 10**18; // 5 INR (in wei for precision)
+    uint256 public constant BUSINESS_VOLUME_PER_PHASE = 2_000_000 * 10**18; // 2M INR
+    uint256 public constant PRICE_INCREASE_PERCENT = 5;
+    
+    // ========== STATE VARIABLES ==========
+    uint256 public currentPrice;
+    uint256 public totalBusinessVolume; // Total INR invested
+    uint256 public totalWithdrawnINR; // Total INR withdrawn
+    uint256 public currentPhase;
+    uint256 public constant TOTAL_PHASES = 21;
+    
+    // Balances and allowances
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+    
+    // ========== USER STRUCTURES ==========
+    struct UserInvestment {
+        uint256 totalInvestedINR; // Total INR invested
+        uint256 totalTokensReceived; // Total tokens received
+        uint256 investmentTime;
+        uint256 lastROIClaim;
+        bool active;
+    }
+    
+    struct StakeInfo {
+        uint256 stakedAmount;
+        uint256 stakeStartTime;
+        uint256 lastStakeROIClaim;
+        bool active;
+    }
+    
+    struct ReferralInfo {
+        address upline;
+        uint256 level;
+        uint256 totalReferrals;
+        uint256 referralEarnings; // In tokens
+    }
+    
+    mapping(address => UserInvestment) public investments;
+    mapping(address => StakeInfo) public stakes;
+    mapping(address => uint256) public totalWithdrawnTokens; // Tokens withdrawn by user
+    mapping(address => uint256) public totalWithdrawnINRByUser; // INR value withdrawn by user
+    mapping(address => ReferralInfo) public referralTree;
+    
+    // ========== INCOME DISTRIBUTION (10 levels) ==========
+    uint256[] public levelPercentages = [500, 200, 150, 100, 100, 100, 75, 50, 25, 25]; // Basis points
+    
+    // ========== ROI SYSTEM ==========
+    uint256 public constant ROI_RATE_SMALL = 100; // 1% per month
+    uint256 public constant ROI_RATE_LARGE = 150; // 1.5% per month
+    uint256 public constant INVESTMENT_THRESHOLD = 100_000 * 10**18; // 1 lakh INR (100k INR)
+    
+    // ========== STAKING SYSTEM ==========
+    uint256 public constant STAKE_BONUS = 50; // 0.5% additional monthly bonus
+    uint256 public constant STAKE_LOCK_PERIOD = 365 days; // 12 months
+    
+    // ========== WITHDRAWAL SETTINGS ==========
+    uint256 public constant MIN_INVESTMENT = 100 * 10**18; // 100 INR minimum
+    uint256 public constant WITHDRAWAL_FEE_PERCENT = 500; // 5%
+    
+    // ========== ADMIN ==========
+    address public owner;
+    address public treasuryWallet;
+    address public developmentWallet;
+    
+    // ========== EVENTS ==========
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event InvestmentMade(address indexed user, uint256 amountINR, uint256 tokensReceived, address indexed referrer);
+    event ROIClaimed(address indexed user, uint256 amount);
+    event TokensStaked(address indexed user, uint256 amount);
+    event StakeROIClaimed(address indexed user, uint256 amount);
+    event TokensUnstaked(address indexed user, uint256 amount);
+    event ReferralEarned(address indexed referrer, address indexed referred, uint256 level, uint256 tokenAmount);
+    event PriceUpdated(uint256 newPrice, uint256 newPhase);
+    event Withdrawal(address indexed user, uint256 tokenAmount, uint256 fee, uint256 netAmount);
+    
+    // ========== MODIFIERS ==========
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner");
+        _;
+    }
+    
+    modifier onlyRegistered() {
+        require(referralTree[msg.sender].upline != address(0) || msg.sender == owner, "Register first");
+        _;
+    }
+    
+    // ========== CONSTRUCTOR ==========
+    constructor(address _treasuryWallet, address _developmentWallet) {
+        owner = msg.sender;
+        treasuryWallet = _treasuryWallet;
+        developmentWallet = _developmentWallet;
+        
+        // Initialize token
+        currentPrice = INITIAL_PRICE;
+        currentPhase = 1;
+        
+        // Mint all tokens to owner at deployment
+        totalSupply = MAX_SUPPLY;
+        _balances[owner] = MAX_SUPPLY;
+        emit Transfer(address(0), owner, MAX_SUPPLY);
+        
+        // Register owner
+        referralTree[owner] = ReferralInfo({
+            upline: address(0),
+            level: 0,
+            totalReferrals: 0,
+            referralEarnings: 0
+        });
+    }
+    
+    // ========== BASIC ERC-20 FUNCTIONS ==========
+    function balanceOf(address account) public view returns (uint256) {
+        return _balances[account];
+    }
+    
+    function transfer(address to, uint256 amount) public returns (bool) {
+        require(to != address(0), "Transfer to zero address");
+        require(_balances[msg.sender] >= amount, "Insufficient balance");
+        
+        _balances[msg.sender] -= amount;
+        _balances[to] += amount;
+        
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+    
+    function allowance(address tokenOwner, address spender) public view returns (uint256) {
+        return _allowances[tokenOwner][spender];
+    }
+    
+    function approve(address spender, uint256 amount) public returns (bool) {
+        _allowances[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+    
+    function transferFrom(address from, address to, uint256 amount) public returns (bool) {
+        require(_balances[from] >= amount, "Insufficient balance");
+        require(_allowances[from][msg.sender] >= amount, "Allowance exceeded");
+        
+        _balances[from] -= amount;
+        _allowances[from][msg.sender] -= amount;
+        _balances[to] += amount;
+        
+        emit Transfer(from, to, amount);
+        return true;
+    }
+    
+    // ========== MAIN INVESTMENT FUNCTION ==========
+    
+    /**
+     * @dev User invests INR amount and receives tokens directly to wallet
+     * @param userWallet The wallet address of the user making the investment
+     * @param amountINR Amount in INR (with 18 decimals for precision)
+     * @param referrer Referral wallet address (required for new users)
+     */
+    function invest(address userWallet, uint256 amountINR, address referrer) public {
+        require(userWallet != address(0), "Invalid user wallet");
+        require(amountINR >= MIN_INVESTMENT, "Below minimum investment");
+        
+        // Calculate tokens to receive
+        uint256 tokensToReceive = (amountINR * 10**18) / currentPrice;
+        
+        // Check if owner has enough tokens
+        require(_balances[owner] >= tokensToReceive, "Insufficient tokens in reserve");
+        
+        // Register if new user
+        if (referralTree[userWallet].upline == address(0) && userWallet != owner) {
+            require(referrer != address(0), "Referrer required");
+            _registerUser(userWallet, referrer);
+        }
+        
+        // Transfer tokens from owner to user's wallet
+        _transfer(owner, userWallet, tokensToReceive);
+        
+        // Update user investment record
+        if (!investments[userWallet].active) {
+            investments[userWallet] = UserInvestment({
+                totalInvestedINR: amountINR,
+                totalTokensReceived: tokensToReceive,
+                investmentTime: block.timestamp,
+                lastROIClaim: block.timestamp,
+                active: true
+            });
+        } else {
+            investments[userWallet].totalInvestedINR += amountINR;
+            investments[userWallet].totalTokensReceived += tokensToReceive;
+        }
+        
+        // Update business volume
+        totalBusinessVolume += amountINR;
+        _updatePriceIfNeeded();
+        
+        // Distribute level income in tokens
+        if (referralTree[userWallet].upline != address(0)) {
+            _distributeLevelIncome(userWallet, tokensToReceive);
+        }
+        
+        emit InvestmentMade(userWallet, amountINR, tokensToReceive, referralTree[userWallet].upline);
+    }
+    
+    // ========== ROI SYSTEM ==========
+    
+    /**
+     * @dev Claim monthly ROI based on total tokens received
+     */
+    function claimROI() public {
+        UserInvestment storage investment = investments[msg.sender];
+        require(investment.active, "No active investment");
+        
+        uint256 timeElapsed = block.timestamp - investment.lastROIClaim;
+        require(timeElapsed >= 30 days, "Wait 30 days");
+        
+        // Calculate ROI based on total INR invested
+        uint256 roiRate = investment.totalInvestedINR < INVESTMENT_THRESHOLD ? ROI_RATE_SMALL : ROI_RATE_LARGE;
+        uint256 roiAmount = (investment.totalTokensReceived * roiRate) / 10000;
+        
+        // Update last claim
+        investment.lastROIClaim = block.timestamp;
+        
+        // Transfer ROI tokens from owner to user
+        require(_balances[owner] >= roiAmount, "Insufficient tokens in reserve");
+        _transfer(owner, msg.sender, roiAmount);
+        
+        emit ROIClaimed(msg.sender, roiAmount);
+    }
+    
+    // ========== STAKING SYSTEM ==========
+    
+    /**
+     * @dev Stake tokens for 12 months to earn additional 0.5% monthly bonus
+     * @param tokenAmount Amount of tokens to stake
+     */
+    function stakeTokens(uint256 tokenAmount) public {
+        require(tokenAmount > 0, "Amount must be > 0");
+        require(_balances[msg.sender] >= tokenAmount, "Insufficient balance");
+        require(!stakes[msg.sender].active, "Already have active stake");
+        
+        // Transfer tokens from user to contract (lock them)
+        _transfer(msg.sender, address(this), tokenAmount);
+        
+        // Create stake record
+        stakes[msg.sender] = StakeInfo({
+            stakedAmount: tokenAmount,
+            stakeStartTime: block.timestamp,
+            lastStakeROIClaim: block.timestamp,
+            active: true
+        });
+        
+        emit TokensStaked(msg.sender, tokenAmount);
+    }
+    
+    /**
+     * @dev Claim monthly ROI on staked tokens (ROI rate + 0.5% stake bonus)
+     */
+    function claimStakeROI() public {
+        StakeInfo storage stake = stakes[msg.sender];
+        require(stake.active, "No active stake");
+        
+        uint256 timeElapsed = block.timestamp - stake.lastStakeROIClaim;
+        require(timeElapsed >= 30 days, "Wait 30 days");
+        
+        // Determine base ROI rate based on user's total INR investment
+        UserInvestment memory investment = investments[msg.sender];
+        uint256 baseROIRate = investment.totalInvestedINR < INVESTMENT_THRESHOLD ? ROI_RATE_SMALL : ROI_RATE_LARGE;
+        
+        // Add stake bonus (0.5%)
+        uint256 totalROIRate = baseROIRate + STAKE_BONUS;
+        
+        // Calculate ROI on staked amount
+        uint256 roiAmount = (stake.stakedAmount * totalROIRate) / 10000;
+        
+        // Update last claim
+        stake.lastStakeROIClaim = block.timestamp;
+        
+        // Transfer ROI tokens from owner to user
+        require(_balances[owner] >= roiAmount, "Insufficient tokens in reserve");
+        _transfer(owner, msg.sender, roiAmount);
+        
+        emit StakeROIClaimed(msg.sender, roiAmount);
+    }
+    
+    /**
+     * @dev Unstake tokens after 12 months lock period
+     */
+    function unstake() public {
+        StakeInfo storage stake = stakes[msg.sender];
+        require(stake.active, "No active stake");
+        require(block.timestamp >= stake.stakeStartTime + STAKE_LOCK_PERIOD, "Stake still locked");
+        
+        uint256 stakedAmount = stake.stakedAmount;
+        
+        // Mark stake as inactive
+        stake.active = false;
+        stake.stakedAmount = 0;
+        
+        // Transfer tokens back to user
+        _transfer(address(this), msg.sender, stakedAmount);
+        
+        emit TokensUnstaked(msg.sender, stakedAmount);
+    }
+    
+    // ========== WITHDRAWAL FUNCTIONS ==========
+    
+    /**
+     * @dev Normal withdrawal for ROI and level income ONLY
+     * @param tokenAmount Amount of tokens to withdraw
+     * 5% fee applied on earnings withdrawal
+     * Can only withdraw earnings (balance - principal tokens)
+     */
+    function normalWithdraw(uint256 tokenAmount) public onlyRegistered {
+        require(tokenAmount > 0, "Amount must be > 0");
+        require(balanceOf(msg.sender) >= tokenAmount, "Insufficient balance");
+        
+        UserInvestment memory investment = investments[msg.sender];
+        
+        // Calculate principal tokens in wallet (excluding staked)
+        uint256 stakedAmount = stakes[msg.sender].active ? stakes[msg.sender].stakedAmount : 0;
+        uint256 principalInWallet = investment.totalTokensReceived > stakedAmount ? 
+            investment.totalTokensReceived - stakedAmount : 0;
+        
+        uint256 currentBalance = balanceOf(msg.sender);
+        
+        require(currentBalance > principalInWallet, "No earnings to withdraw");
+        
+        // Available earnings = balance - principal in wallet
+        uint256 availableEarnings = currentBalance - principalInWallet;
+        require(tokenAmount <= availableEarnings, "Cannot withdraw principal, use sosWithdraw");
+        
+        // Calculate fee (5% on earnings)
+        uint256 fee = (tokenAmount * WITHDRAWAL_FEE_PERCENT) / 10000;
+        uint256 netAmount = tokenAmount - fee;
+        
+        // Calculate INR value of withdrawn tokens
+        uint256 withdrawnINR = getINRForTokens(tokenAmount);
+        
+        // Transfer fee to development wallet
+        _transfer(msg.sender, developmentWallet, fee);
+        
+        // Transfer net amount to admin wallet
+        _transfer(msg.sender, owner, netAmount);
+        
+        // Update withdrawal tracking
+        totalWithdrawnTokens[msg.sender] += tokenAmount;
+        totalWithdrawnINRByUser[msg.sender] += withdrawnINR;
+        totalWithdrawnINR += withdrawnINR;
+        
+        // Update price based on net business volume
+        _updatePriceIfNeeded();
+        
+        emit Withdrawal(msg.sender, tokenAmount, fee, netAmount);
+    }
+    
+    /**
+     * @dev SOS withdrawal for principal investment tokens (emergency withdrawal)
+     * @param tokenAmount Amount of principal tokens to withdraw
+     * No fee applied, but reduces totalTokensReceived which affects future ROI
+     * Cannot withdraw staked tokens
+     */
+    function sosWithdraw(uint256 tokenAmount) public onlyRegistered {
+        require(tokenAmount > 0, "Amount must be > 0");
+        require(balanceOf(msg.sender) >= tokenAmount, "Insufficient balance");
+        
+        UserInvestment storage investment = investments[msg.sender];
+        require(investment.active, "No active investment");
+        
+        // Calculate available principal (total received - staked)
+        uint256 stakedAmount = stakes[msg.sender].active ? stakes[msg.sender].stakedAmount : 0;
+        uint256 availablePrincipal = investment.totalTokensReceived > stakedAmount ? 
+            investment.totalTokensReceived - stakedAmount : 0;
+        
+        require(tokenAmount <= availablePrincipal, "Cannot withdraw staked tokens");
+        
+        // Calculate INR value of withdrawn tokens
+        uint256 withdrawnINR = getINRForTokens(tokenAmount);
+        
+        // No fee for SOS withdrawal
+        // Transfer full amount to admin wallet
+        _transfer(msg.sender, owner, tokenAmount);
+        
+        // Reduce totalTokensReceived (this reduces future ROI calculations)
+        investment.totalTokensReceived -= tokenAmount;
+        
+        // Update withdrawal tracking
+        totalWithdrawnTokens[msg.sender] += tokenAmount;
+        totalWithdrawnINRByUser[msg.sender] += withdrawnINR;
+        totalWithdrawnINR += withdrawnINR;
+        
+        // Update price based on net business volume
+        _updatePriceIfNeeded();
+        
+        emit Withdrawal(msg.sender, tokenAmount, 0, tokenAmount);
+    }
+    
+    // ========== INTERNAL FUNCTIONS ==========
+    
+    function _mint(address to, uint256 amount) internal {
+        require(to != address(0), "Mint to zero address");
+        require(totalSupply + amount <= MAX_SUPPLY, "Max supply exceeded");
+        
+        totalSupply += amount;
+        _balances[to] += amount;
+        emit Transfer(address(0), to, amount);
+    }
+    
+    function _burn(address from, uint256 amount) internal {
+        require(_balances[from] >= amount, "Burn amount exceeds balance");
+        _balances[from] -= amount;
+        totalSupply -= amount;
+        emit Transfer(from, address(0), amount);
+    }
+    
+    function _transfer(address from, address to, uint256 amount) internal {
+        require(from != address(0), "Transfer from zero address");
+        require(to != address(0), "Transfer to zero address");
+        require(_balances[from] >= amount, "Insufficient balance");
+        
+        _balances[from] -= amount;
+        _balances[to] += amount;
+        
+        emit Transfer(from, to, amount);
+    }
+    
+    function _registerUser(address user, address referrer) internal {
+        require(referrer != address(0), "Referrer required");
+        require(referralTree[referrer].upline != address(0) || referrer == owner, "Invalid referrer");
+        require(referralTree[user].upline == address(0), "Already registered");
+        
+        uint256 uplineLevel = referralTree[referrer].level + 1;
+        require(uplineLevel <= 10, "Max levels exceeded");
+        
+        referralTree[user] = ReferralInfo({
+            upline: referrer,
+            level: uplineLevel,
+            totalReferrals: 0,
+            referralEarnings: 0
+        });
+        
+        referralTree[referrer].totalReferrals++;
+    }
+    
+    /**
+     * @dev Distribute level income as tokens based on investment tokens
+     * @param investor The investor address
+     * @param tokensReceived Total tokens the investor received
+     */
+    function _distributeLevelIncome(address investor, uint256 tokensReceived) internal {
+        address currentUpline = referralTree[investor].upline;
+        uint256 level = 1;
+        
+        while (currentUpline != address(0) && level <= 10) {
+            uint256 rewardPercentage = levelPercentages[level - 1];
+            uint256 rewardTokens = (tokensReceived * rewardPercentage) / 10000;
+            
+            if (rewardTokens > 0 && _balances[owner] >= rewardTokens) {
+                // Transfer tokens from owner to upline's wallet
+                _transfer(owner, currentUpline, rewardTokens);
+                referralTree[currentUpline].referralEarnings += rewardTokens;
+                
+                emit ReferralEarned(currentUpline, investor, level, rewardTokens);
+            }
+            
+            currentUpline = referralTree[currentUpline].upline;
+            level++;
+        }
+    }
+    
+    function _updatePriceIfNeeded() internal {
+        // Calculate net business volume (investments - withdrawals in INR)
+        uint256 netBusinessVolume = totalBusinessVolume > totalWithdrawnINR ? 
+            totalBusinessVolume - totalWithdrawnINR : 0;
+        
+        // Calculate which phase we should be in based on net volume
+        // Phase 1: 0 to 20L, Phase 2: 20L to 40L, Phase 3: 40L to 60L, etc.
+        uint256 targetPhase = (netBusinessVolume / BUSINESS_VOLUME_PER_PHASE) + 1;
+        
+        // Cap at maximum phases
+        if (targetPhase > TOTAL_PHASES) {
+            targetPhase = TOTAL_PHASES;
+        }
+        
+        // Update price if we need to move to a higher phase
+        while (currentPhase < targetPhase && currentPhase < TOTAL_PHASES) {
+            currentPrice = (currentPrice * (100 + PRICE_INCREASE_PERCENT)) / 100;
+            currentPhase++;
+            
+            emit PriceUpdated(currentPrice, currentPhase);
+        }
+    }
+    
+    // ========== VIEW FUNCTIONS ==========
+    
+    function getCurrentPrice() public view returns (uint256) {
+        return currentPrice;
+    }
+    
+    function getPendingROI(address user) public view returns (uint256) {
+        UserInvestment memory investment = investments[user];
+        if (!investment.active) return 0;
+        
+        uint256 timeElapsed = block.timestamp - investment.lastROIClaim;
+        if (timeElapsed < 30 days) return 0;
+        
+        uint256 monthsPassed = timeElapsed / 30 days;
+        uint256 roiRate = investment.totalInvestedINR < INVESTMENT_THRESHOLD ? ROI_RATE_SMALL : ROI_RATE_LARGE;
+        
+        uint256 pendingROI = (investment.totalTokensReceived * roiRate * monthsPassed) / 10000;
+        
+        return pendingROI;
+    }
+    
+    function getPendingStakeROI(address user) public view returns (uint256) {
+        StakeInfo memory stake = stakes[user];
+        if (!stake.active) return 0;
+        
+        uint256 timeElapsed = block.timestamp - stake.lastStakeROIClaim;
+        if (timeElapsed < 30 days) return 0;
+        
+        uint256 monthsPassed = timeElapsed / 30 days;
+        
+        // Determine base ROI rate
+        UserInvestment memory investment = investments[user];
+        uint256 baseROIRate = investment.totalInvestedINR < INVESTMENT_THRESHOLD ? ROI_RATE_SMALL : ROI_RATE_LARGE;
+        
+        // Add stake bonus
+        uint256 totalROIRate = baseROIRate + STAKE_BONUS;
+        
+        uint256 pendingROI = (stake.stakedAmount * totalROIRate * monthsPassed) / 10000;
+        
+        return pendingROI;
+    }
+    
+    function getStakeInfo(address user) public view returns (
+        uint256 stakedAmount,
+        uint256 stakeStartTime,
+        uint256 timeUntilUnlock,
+        bool isActive,
+        uint256 pendingROI
+    ) {
+        StakeInfo memory stake = stakes[user];
+        
+        uint256 unlockTime = stake.stakeStartTime + STAKE_LOCK_PERIOD;
+        uint256 timeLeft = 0;
+        
+        if (block.timestamp < unlockTime) {
+            timeLeft = unlockTime - block.timestamp;
+        }
+        
+        return (
+            stake.stakedAmount,
+            stake.stakeStartTime,
+            timeLeft,
+            stake.active,
+            getPendingStakeROI(user)
+        );
+    }
+    
+    function getTokensForINR(uint256 amountINR) public view returns (uint256) {
+        return (amountINR * 10**18) / currentPrice;
+    }
+    
+    function getINRForTokens(uint256 tokenAmount) public view returns (uint256) {
+        return (tokenAmount * currentPrice) / 10**18;
+    }
+    
+    function getUserInvestmentInfo(address user) public view returns (
+        uint256 totalInvestedINR,
+        uint256 totalTokensReceived,
+        uint256 currentBalance,
+        uint256 pendingROI
+    ) {
+        UserInvestment memory inv = investments[user];
+        
+        return (
+            inv.totalInvestedINR,
+            inv.totalTokensReceived,
+            _balances[user],
+            getPendingROI(user)
+        );
+    }
+    
+    function getUserReferralInfo(address user) public view returns (
+        uint256 referralEarnings,
+        uint256 totalReferrals,
+        address upline
+    ) {
+        ReferralInfo memory ref = referralTree[user];
+        
+        return (
+            ref.referralEarnings,
+            ref.totalReferrals,
+            ref.upline
+        );
+    }
+    
+    /**
+     * @dev Get net business volume (investments - withdrawals in INR)
+     * This is the actual volume used for phase calculations
+     */
+    function getNetBusinessVolume() public view returns (uint256) {
+        return totalBusinessVolume > totalWithdrawnINR ? 
+            totalBusinessVolume - totalWithdrawnINR : 0;
+    }
+    
+    /**
+     * @dev Get user's total withdrawn information
+     */
+    function getUserWithdrawalInfo(address user) public view returns (
+        uint256 withdrawnTokens,
+        uint256 withdrawnINR
+    ) {
+        return (
+            totalWithdrawnTokens[user],
+            totalWithdrawnINRByUser[user]
+        );
+    }
+    
+    /**
+     * @dev Get complete business volume statistics
+     */
+    function getBusinessVolumeStats() public view returns (
+        uint256 totalInvestedINR,
+        uint256 totalWithdrawn,
+        uint256 netVolume,
+        uint256 currentPhaseNumber,
+        uint256 volumeInCurrentPhase,
+        uint256 volumeNeededForNextPhase
+    ) {
+        uint256 net = getNetBusinessVolume();
+        uint256 volumeInPhase = net % BUSINESS_VOLUME_PER_PHASE;
+        uint256 volumeNeeded = BUSINESS_VOLUME_PER_PHASE - volumeInPhase;
+        
+        return (
+            totalBusinessVolume,
+            totalWithdrawnINR,
+            net,
+            currentPhase,
+            volumeInPhase,
+            volumeNeeded
+        );
+    }
+    
+    // ========== ADMIN FUNCTIONS ==========
+    
+    function updateWallets(address _treasury, address _development) public onlyOwner {
+        require(_treasury != address(0), "Invalid treasury address");
+        require(_development != address(0), "Invalid development address");
+        treasuryWallet = _treasury;
+        developmentWallet = _development;
+    }
+    
+    /**
+     * @dev Manually set token price (in wei, 18 decimals)
+     * @param newPrice New price in INR (e.g., 5 * 10^18 for 5 INR)
+     */
+    function setPrice(uint256 newPrice) public onlyOwner {
+        require(newPrice > 0, "Price must be > 0");
+        currentPrice = newPrice;
+        emit PriceUpdated(currentPrice, currentPhase);
+    }
+    
+    /**
+     * @dev Manually set current phase
+     * @param newPhase New phase number (1-21)
+     */
+    function setPhase(uint256 newPhase) public onlyOwner {
+        require(newPhase > 0 && newPhase <= TOTAL_PHASES, "Invalid phase");
+        currentPhase = newPhase;
+        emit PriceUpdated(currentPrice, currentPhase);
+    }
+    
+    /**
+     * @dev Set both phase and price together
+     * @param newPhase New phase number (1-21)
+     * @param newPrice New price in INR (with 18 decimals)
+     */
+    function setPhaseAndPrice(uint256 newPhase, uint256 newPrice) public onlyOwner {
+        require(newPhase > 0 && newPhase <= TOTAL_PHASES, "Invalid phase");
+        require(newPrice > 0, "Price must be > 0");
+        currentPhase = newPhase;
+        currentPrice = newPrice;
+        emit PriceUpdated(currentPrice, currentPhase);
+    }
+    
+    /**
+     * @dev Manually adjust business volume (for corrections)
+     * @param newVolume New total business volume in INR
+     */
+    function setBusinessVolume(uint256 newVolume) public onlyOwner {
+        totalBusinessVolume = newVolume;
+    }
+    
+    /**
+     * @dev Revert/reclaim tokens from user wallet back to admin wallet
+     * @param userAddress Address of the user to reclaim tokens from
+     * @param tokenAmount Amount of tokens to reclaim
+     * @param adjustInvestment Whether to adjust user's investment record (true) or just transfer tokens (false)
+     */
+    function revertTokensFromUser(address userAddress, uint256 tokenAmount, bool adjustInvestment) public onlyOwner {
+        require(userAddress != address(0), "Invalid user address");
+        require(userAddress != owner, "Cannot revert from owner");
+        require(tokenAmount > 0, "Amount must be > 0");
+        require(_balances[userAddress] >= tokenAmount, "User has insufficient balance");
+        
+        // Check if tokens are staked
+        if (stakes[userAddress].active) {
+            uint256 stakedAmount = stakes[userAddress].stakedAmount;
+            uint256 availableBalance = _balances[userAddress] > stakedAmount ? 
+                _balances[userAddress] - stakedAmount : 0;
+            require(tokenAmount <= availableBalance, "Cannot revert staked tokens");
+        }
+        
+        // Transfer tokens from user to owner
+        _transfer(userAddress, owner, tokenAmount);
+        
+        // Optionally adjust user's investment record
+        if (adjustInvestment && investments[userAddress].active) {
+            UserInvestment storage investment = investments[userAddress];
+            
+            // Reduce totalTokensReceived (affects future ROI)
+            if (investment.totalTokensReceived >= tokenAmount) {
+                investment.totalTokensReceived -= tokenAmount;
+            } else {
+                investment.totalTokensReceived = 0;
+            }
+            
+            // Calculate and reduce INR investment proportionally
+            if (investment.totalTokensReceived > 0) {
+                uint256 inrToReduce = getINRForTokens(tokenAmount);
+                if (investment.totalInvestedINR >= inrToReduce) {
+                    investment.totalInvestedINR -= inrToReduce;
+                } else {
+                    investment.totalInvestedINR = 0;
+                }
+            }
+            
+            // Deactivate investment if no tokens left
+            if (investment.totalTokensReceived == 0) {
+                investment.active = false;
+            }
+        }
+        
+        emit Transfer(userAddress, owner, tokenAmount);
+    }
+    
+    /**
+     * @dev Transfer ownership to new address
+     * @param newOwner New owner address
+     */
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "Invalid address");
+        owner = newOwner;
+    }
+}
