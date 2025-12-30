@@ -1,9 +1,5 @@
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
-
-// @desc    Get all transactions (Admin: all, User: own)
-// @route   GET /api/transactions
-// @access  Private
 const KYC = require('../models/KYC');
 
 // @desc    Get all transactions (Admin: all, User: own)
@@ -129,13 +125,6 @@ const updateTransactionStatus = async (req, res) => {
     }
 };
 
-module.exports = {
-    getTransactions,
-    createTransaction,
-    updateTransactionStatus,
-    getTransactionStats,
-};
-
 // @desc    Get transaction statistics (Admin)
 // @route   GET /api/transactions/stats
 // @access  Private/Admin
@@ -178,4 +167,11 @@ const getTransactionStats = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
+};
+
+module.exports = {
+    getTransactions,
+    createTransaction,
+    updateTransactionStatus,
+    getTransactionStats,
 };
