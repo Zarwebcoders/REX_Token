@@ -16,7 +16,7 @@ const app = express();
 // CORS Configuration
 // CORS
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://localhost:5174', 'rex-token-backend-beta.vercel.app', 'www.rextoken.in', 'rex-token-frontend.vercel.app'], // Allow both 5173 and 5174
+    origin: ['http://localhost:5173', 'http://localhost:5174', 'https://rex-token-backend-beta.vercel.app', 'https://www.rextoken.in', 'https://rex-token-frontend.vercel.app'], // Allow both 5173 and 5174
     methods: 'GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH, PROPFIND',
     credentials: true
 }
