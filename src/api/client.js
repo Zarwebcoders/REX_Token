@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const client = axios.create({
-    baseURL: import.meta.env.PROD ? 'https://rex-token-backend-beta.vercel.app/' : '/api',
+    baseURL: import.meta.env.PROD ? 'https://rex-token-backend-beta.vercel.app/api' : '/api',
     headers: {
         'Content-Type': 'application/json',
     },
