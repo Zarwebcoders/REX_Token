@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 
+const ADMIN_WALLET = '0x74ae39494670430c029c4e75af6c1fd80512654d';
+
 // Generate JWT
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -27,15 +29,27 @@ const registerUser = async (req, res) => {
     }
 
     let sponsorId = null;
-    let sponsorWalletAddress = '0x0000000000000000000000000000000000000000';
+    let sponsorWalletAddress = ADMIN_WALLET; // Default to admin wallet
+
+    // Initialize sponsorId with Admin user if they exist
+    const adminUser = await User.findOne({ wallet: ADMIN_WALLET });
+    if (adminUser) {
+        sponsorId = adminUser._id;
+    }
 
     if (referralCode) {
-        // referralCode is the sponsor's wallet address (from referral link)
-        const sponsor = await User.findOne({ wallet: referralCode });
+        // Try to find sponsor by wallet OR referral code
+        // referralCode from body can be either a wallet address or a 7-char code
+        const sponsor = await User.findOne({
+            $or: [
+                { wallet: referralCode },
+                { referralCode: referralCode }
+            ]
+        });
+
         if (sponsor) {
             sponsorId = sponsor._id;
-            // Save sponsor's wallet address directly
-            sponsorWalletAddress = referralCode; // Use the wallet from ref parameter
+            sponsorWalletAddress = sponsor.wallet; // Use sponsor's actual wallet address
         }
     }
 

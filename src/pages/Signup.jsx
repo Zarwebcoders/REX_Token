@@ -25,9 +25,6 @@ export default function Signup({ setIsAuthenticated }) {
         if (refParam) {
             // Use ref from URL
             setFormData(prev => ({ ...prev, referralCode: refParam }));
-        } else {
-            // Use default admin wallet if no ref provided
-            setFormData(prev => ({ ...prev, referralCode: DEFAULT_REFERRAL }));
         }
     }, [searchParams]);
 
@@ -159,15 +156,15 @@ export default function Signup({ setIsAuthenticated }) {
                                 id="referralCode"
                                 type="text"
                                 name="referralCode"
-                                placeholder="Loading referral code..."
+                                placeholder="Referral Code or Sponsor Wallet (Optional)"
                                 value={formData.referralCode}
-                                readOnly
-                                className="w-full px-4 py-3 bg-[#1a1a1a]/50 border border-[#444] text-gray-400 rounded-lg cursor-not-allowed font-mono text-sm"
+                                onChange={handleChange}
+                                className="w-full px-4 py-3 bg-[#1a1a1a] border border-[#444] text-white rounded-lg focus:outline-none focus:border-[#9131e7] focus:ring-2 focus:ring-[#9131e7]/30 transition-all duration-300 placeholder-[#666]"
                             />
                             <p className="text-xs text-gray-500 mt-1">
-                                {formData.referralCode === DEFAULT_REFERRAL
-                                    ? "No referral link used - using default admin wallet"
-                                    : "Auto-filled from referral link"}
+                                {!formData.referralCode
+                                    ? "Leave empty to use system default wallet address (Admin)"
+                                    : "Sponsor Wallet or Code applied"}
                             </p>
                         </div>
 

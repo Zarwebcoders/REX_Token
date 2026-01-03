@@ -107,7 +107,7 @@ export default function Dashboard() {
         };
 
         fetchUserData();
-        checkWalletConnection();
+        // checkWalletConnection(); // Disabled auto-connect to prevent wrong wallet association
     }, []);
 
     // Fetch blockchain data when wallet is connected
