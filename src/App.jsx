@@ -15,6 +15,7 @@ import ReferralIncome from "./pages/ReferralIncome"
 import LevelIncome from "./pages/LevelIncome"
 import Profile from "./pages/Profile"
 import TransactionHistory from "./pages/TransactionHistory"
+import StakeROI from "./pages/StakeROI"
 import Home from "./components/Home"
 import AdminLayout from "./admin/page"
 import UserManagement from "./admin/components/UserManagement"
@@ -100,6 +101,9 @@ export default function App() {
           } />
           <Route path="/transactions" element={
             isAuthenticated ? <TransactionHistory /> : <Navigate to="/login" />
+          } />
+          <Route path="/stake-roi" element={
+            isAuthenticated ? <StakeROI /> : <Navigate to="/login" />
           } />
         </Route>
 

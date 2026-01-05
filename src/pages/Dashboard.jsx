@@ -414,6 +414,23 @@ export default function Dashboard() {
             const result = await claimROI();
 
             if (result.success) {
+                // Save transaction to DB
+                try {
+                    // Use pending ROI from state as the claimed amount (approximation suitable for UI record)
+                    // Note: incomeBreakdown.miningBonus is in INR
+                    await client.post('/transactions', {
+                        type: 'claim_roi',
+                        amount: incomeBreakdown.miningBonus,
+                        currency: 'INR',
+                        hash: result.txHash,
+                        status: 'completed',
+                        description: 'Claimed ROI'
+                    });
+                    console.log("ROI Claim saved to DB");
+                } catch (dbError) {
+                    console.error("Error saving claim to DB:", dbError);
+                }
+
                 alert(
                     `✅ ROI Claimed Successfully!\n\n` +
                     `Transaction Hash: ${result.txHash}\n\n` +
@@ -454,6 +471,21 @@ export default function Dashboard() {
             const result = await claimStakeROI();
 
             if (result.success) {
+                // Save transaction to DB
+                try {
+                    await client.post('/transactions', {
+                        type: 'claim_stake_roi',
+                        amount: incomeBreakdown.dailyMiningRewards,
+                        currency: 'INR',
+                        hash: result.txHash,
+                        status: 'completed',
+                        description: 'Claimed Stake ROI'
+                    });
+                    console.log("Stake ROI Claim saved to DB");
+                } catch (dbError) {
+                    console.error("Error saving stake claim to DB:", dbError);
+                }
+
                 alert(
                     `✅ Stake ROI Claimed Successfully!\n\n` +
                     `Transaction Hash: ${result.txHash}\n\n` +
@@ -594,16 +626,28 @@ export default function Dashboard() {
                 <section className="space-y-4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                         <h3 className="text-xl md:text-2xl font-bold text-[#9131e7]">Mining Center</h3>
-                        <button
-                            onClick={handleClaimROI}
-                            disabled={claimingROI || !isWalletConnected}
-                            className={`px-4 py-2 ${claimingROI || !isWalletConnected
-                                ? 'bg-gray-600 cursor-not-allowed'
-                                : 'bg-[#9131e7] hover:bg-[#7a27c9]'
-                                } text-white font-medium rounded-lg transition-colors duration-200 text-sm md:text-base w-full sm:w-auto`}
-                        >
-                            {claimingROI ? '⏳ Claiming...' : '💰 Claim ROI'}
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                            <button
+                                onClick={handleClaimStakeROI}
+                                disabled={claimingROI || !isWalletConnected}
+                                className={`px-4 py-2 ${claimingROI || !isWalletConnected
+                                    ? 'bg-gray-600 cursor-not-allowed'
+                                    : 'bg-[#e91e63] hover:bg-[#c2185b]'
+                                    } text-white font-medium rounded-lg transition-colors duration-200 text-sm md:text-base w-full sm:w-auto`}
+                            >
+                                {claimingROI ? '⏳ Claiming...' : '🏦 Claim Stake ROI'}
+                            </button>
+                            <button
+                                onClick={handleClaimROI}
+                                disabled={claimingROI || !isWalletConnected}
+                                className={`px-4 py-2 ${claimingROI || !isWalletConnected
+                                    ? 'bg-gray-600 cursor-not-allowed'
+                                    : 'bg-[#9131e7] hover:bg-[#7a27c9]'
+                                    } text-white font-medium rounded-lg transition-colors duration-200 text-sm md:text-base w-full sm:w-auto`}
+                            >
+                                {claimingROI ? '⏳ Claiming...' : '💰 Claim ROI'}
+                            </button>
+                        </div>
                     </div>
                     <div className="bg-[#1a1a2e] border border-[#9131e7]/30 rounded-2xl p-4 md:p-6">
                         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 md:mb-6 gap-4">

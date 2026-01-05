@@ -12,6 +12,7 @@ export default function Layout({ children, setIsAuthenticated }) {
     const menuItems = [
         { label: "Dashboard", path: "/dashboard", icon: "📊" },
         { label: "Investments", path: "/packages", icon: "💰" },
+        { label: "Stake ROI", path: "/stake-roi", icon: "🏦" },
         { label: "KYC Verification", path: "/kyc", icon: "✓" },
         // { label: "Shopping", path: "/shopping", icon: "🛍️" },
         { label: "Withdrawal", path: "/withdrawal", icon: "💸" },
