@@ -635,7 +635,7 @@ export default function Dashboard() {
                                     : 'bg-[#e91e63] hover:bg-[#c2185b]'
                                     } text-white font-medium rounded-lg transition-colors duration-200 text-sm md:text-base w-full sm:w-auto`}
                             >
-                                {claimingROI ? '⏳ Claiming...' : '🏦 Claim Stake ROI'}
+                                🏦 Claim Stake ROI
                             </button>
                             <button
                                 onClick={handleClaimROI}

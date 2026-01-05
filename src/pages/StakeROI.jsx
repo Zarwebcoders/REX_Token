@@ -11,7 +11,7 @@ import {
     ChartBarIcon
 } from "@heroicons/react/24/outline"
 import client from "../api/client"
-import { stakeTokens, getStakeInfo, getTokenBalance } from "../utils/contractUtils"
+import { stakeTokens, getStakeInfo, getTokenBalance, switchNetwork } from "../utils/contractUtils"
 
 
 export default function StakeROI() {
@@ -72,6 +72,7 @@ export default function StakeROI() {
         if (typeof window.ethereum !== 'undefined') {
             try {
                 await window.ethereum.request({ method: 'eth_requestAccounts' })
+                await switchNetwork() // Force network switch
                 checkWalletAndFetchData()
             } catch (error) {
                 console.error("Error connecting wallet:", error)

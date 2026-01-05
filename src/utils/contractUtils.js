@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { CONTRACT_ADDRESS, CONTRACT_ABI, BSC_RPC_URL } from './contractConfig';
+import { CONTRACT_ADDRESS, CONTRACT_ABI, BSC_RPC_URL, getNetworkConfig } from './contractConfig';
 
 /**
  * Get contract instance with provider
@@ -232,6 +232,37 @@ export const convertTokensToINR = async (tokenAmount) => {
 };
 
 /**
+ * Switch wallet network to BSC
+ */
+export const switchNetwork = async () => {
+    const networkConfig = getNetworkConfig();
+    if (!window.ethereum) return;
+
+    try {
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: networkConfig.chainId }],
+        });
+    } catch (switchError) {
+        // This error code indicates that the chain has not been added to MetaMask.
+        if (switchError.code === 4902) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [networkConfig],
+                });
+            } catch (addError) {
+                console.error("Failed to add network:", addError);
+                throw addError;
+            }
+        } else {
+            console.error("Failed to switch network:", switchError);
+            throw switchError;
+        }
+    }
+};
+
+/**
  * Get signer from MetaMask
  * @returns {object} Ethers signer
  */
@@ -243,6 +274,9 @@ const getSigner = async () => {
     try {
         // Request account access if needed
         await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+        // Force network switch to BSC
+        await switchNetwork();
 
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
